@@ -161,6 +161,18 @@ pip install locust
 locust -f locust/locustfile.py --host http://localhost:3000
 ```
 
+## Docker images
+
+```bash
+docker buildx build --no-cache --platform=linux/amd64 -t url-short-rust-scratch -f Dockerfile-scratch .
+docker run --rm -it -p 3000:3000 url-short-rust-scratch 
+```
+
+```bash
+docker buildx build --no-cache --platform=linux/amd64 -t url-short-rust-alpine .
+docker run --rm -it -p 3000:3000 url-short-rust-alpine 
+```
+
 ## Future Improvements
 
 - User authentication for personal URL management
