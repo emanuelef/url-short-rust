@@ -25,7 +25,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
 
 # Enable cargo build cache
 ENV CARGO_HOME=/usr/local/cargo
-ENV RUSTFLAGS="-C target-feature=+crt-static"
+ENV RUSTFLAGS="-C target-feature=+crt-static -C linker=musl-gcc"
 ENV CC=musl-gcc
 
 # Clean build - no caching tricks
