@@ -1,0 +1,72 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Launch",
+        "program": "${workspaceFolder}/<program>",
+        "args": [],
+        "cwd": "${workspaceFolder}"
+    },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'url-short-rust'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=url-short-rust",
+                    "--package=url-short-rust"
+                ],
+                "filter": {
+                    "name": "url-short-rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'url-short-rust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=url-short-rust",
+                    "--package=url-short-rust"
+                ],
+                "filter": {
+                    "name": "url-short-rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'api_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=api_tests",
+                    "--package=url-short-rust"
+                ],
+                "filter": {
+                    "name": "api_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
