@@ -117,7 +117,40 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("Listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app).await?;
+
+    // Graceful shutdown: listen for SIGINT or SIGTERM
+    let shutdown_signal = async {
+        use tokio::signal;
+        
+        // SIGINT handler (Ctrl+C)
+        let ctrl_c = async {
+            signal::ctrl_c().await.expect("Failed to install CTRL+C handler");
+            tracing::info!("Received SIGINT (Ctrl+C), shutting down");
+        };
+
+        // SIGTERM handler (docker stop, kill -15, etc.)
+        #[cfg(unix)]
+        let terminate = async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("Failed to install SIGTERM handler")
+                .recv()
+                .await;
+            tracing::info!("Received SIGTERM, shutting down");
+        };
+
+        #[cfg(not(unix))]
+        let terminate = std::future::pending::<()>();
+
+        // Wait for either signal
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = terminate => {},
+        }
+    };
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal)
+        .await?;
     Ok(())
 }
 
