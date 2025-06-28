@@ -14,6 +14,7 @@ WORKDIR /app
 # Only install exactly what we need
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev musl-tools \
+    gcc-aarch64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the Rust target based on architecture
@@ -25,18 +26,20 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
 
 # Enable cargo build cache
 ENV CARGO_HOME=/usr/local/cargo
-ENV RUSTFLAGS="-C target-feature=+crt-static -C linker=musl-gcc"
-ENV CC=musl-gcc
+ENV RUSTFLAGS="-C target-feature=+crt-static"
 
 # Clean build - no caching tricks
 COPY . .
 
 # Build for the correct target and copy the binary to a known location
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      export CC=musl-gcc && \
       cargo build --release --target x86_64-unknown-linux-musl && \
       strip target/x86_64-unknown-linux-musl/release/url-short-rust && \
       cp target/x86_64-unknown-linux-musl/release/url-short-rust /app/url-short-rust; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
+      export CC=aarch64-linux-gnu-gcc && \
+      export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc && \
       cargo build --release --target aarch64-unknown-linux-musl && \
       strip target/aarch64-unknown-linux-musl/release/url-short-rust && \
       cp target/aarch64-unknown-linux-musl/release/url-short-rust /app/url-short-rust; \
