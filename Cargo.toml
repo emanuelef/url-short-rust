@@ -15,6 +15,7 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 anyhow = "1.0.98"
 thiserror = "2.0.12"
+dashmap = "6.1.0"
 
 [dev-dependencies]
 reqwest = { version = "0.12.20", features = ["json"] }

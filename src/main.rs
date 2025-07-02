@@ -6,14 +6,14 @@ use axum::{
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::{
-    collections::HashMap,
     env,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 use thiserror::Error;
 use tower_http::cors::{Any, CorsLayer};
@@ -23,7 +23,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 // App state
 #[derive(Clone)]
 struct AppState {
-    urls: Arc<Mutex<HashMap<String, Url>>>,
+    urls: Arc<DashMap<String, Url>>,
     index_html: String,
 }
 
@@ -95,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .unwrap_or_else(|_| "<h1>Failed to load index.html</h1>".to_string());
     let state = Arc::new(AppState {
-        urls: Arc::new(Mutex::new(HashMap::new())),
+        urls: Arc::new(DashMap::new()),
         index_html,
     });
 
@@ -167,40 +167,44 @@ async fn create_short_url(
     Json(payload): Json<CreateUrlRequest>,
 ) -> Result<Json<UrlResponse>> {
     let start = Instant::now();
-    // Basic URL validation
+    
+    // Basic URL validation 
     if !payload.url.starts_with("http://") && !payload.url.starts_with("https://") {
         return Err(AppError::InvalidUrl);
     }
-    // Generate a short code
+    
+    // Generate a short code (only clone once for the URL struct)
     let short_code = nanoid!(6);
-    // Generate a unique ID
-    let id = nanoid!(10);
+    
     // Get current time
     let now = Utc::now();
+    
     // Get base URL from environment or use default
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-    // Create URL object
+    
+    // Create URL object (avoid cloning where possible)
     let url = Url {
-        id: id.clone(),
-        original_url: payload.url.clone(),
+        id: nanoid!(10),
+        original_url: payload.url,
         short_code: short_code.clone(),
         created_at: now,
         access_count: 0,
     };
+    
     // Save to in-memory store
-    state
-        .urls
-        .lock()
-        .unwrap()
-        .insert(short_code.clone(), url.clone());
+    state.urls.insert(short_code.clone(), url.clone());
+    
     // Log the time taken
     let elapsed = start.elapsed();
-    println!("[create_short_url] Time taken: {:?}", elapsed);
-    // Return the shortened URL
+    tracing::debug!("[create_short_url] Time taken: {:?}", elapsed);
+    
+    // Return the shortened URL (avoid unnecessary clones)
+    let short_url = format!("{}/{}", base_url, short_code);
+    
     Ok(Json(UrlResponse {
         original_url: url.original_url,
-        short_code: url.short_code.clone(),
-        short_url: format!("{}/{}", base_url, url.short_code),
+        short_code: url.short_code,
+        short_url,
         created_at: url.created_at,
         access_count: url.access_count,
     }))
@@ -211,17 +215,14 @@ async fn redirect_to_original(
     State(state): State<Arc<AppState>>,
     Path(short_code): Path<String>,
 ) -> Result<Redirect> {
-    // Lock the URL store
-    let mut urls = state.urls.lock().unwrap();
-
-    // Find the URL by short code
-    let url = urls.get_mut(&short_code).ok_or(AppError::NotFound)?;
+    // Get the URL entry if it exists
+    let mut entry = state.urls.get_mut(&short_code).ok_or(AppError::NotFound)?;
 
     // Increment access count
-    url.access_count += 1;
+    entry.access_count += 1;
 
-    // Redirect to the original URL
-    Ok(Redirect::permanent(&url.original_url))
+    // Redirect to the original URL (clone only what we need)
+    Ok(Redirect::permanent(&entry.original_url))
 }
 
 // Get all URLs
@@ -229,19 +230,18 @@ async fn get_all_urls(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Url
     // Get base URL from environment or use default
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
-    // Lock the URL store
-    let urls = state.urls.lock().unwrap();
-
-    // Transform to response DTOs
-    let mut url_responses: Vec<_> = urls
-        .values()
-        .cloned()
-        .map(|url| UrlResponse {
-            original_url: url.original_url,
-            short_code: url.short_code.clone(),
-            short_url: format!("{}/{}", base_url, url.short_code),
-            created_at: url.created_at,
-            access_count: url.access_count,
+    // Transform to response DTOs without locking the entire map
+    let mut url_responses: Vec<_> = state.urls
+        .iter()
+        .map(|entry| {
+            let url = entry.value();
+            UrlResponse {
+                original_url: url.original_url.clone(),
+                short_code: url.short_code.clone(),
+                short_url: format!("{}/{}", base_url, url.short_code),
+                created_at: url.created_at,
+                access_count: url.access_count,
+            }
         })
         .collect();
 
@@ -253,26 +253,26 @@ async fn get_all_urls(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Url
 
 // Get analytics
 async fn get_analytics(State(state): State<Arc<AppState>>) -> Result<Json<AnalyticsResponse>> {
-    // Lock the URL store
-    let urls = state.urls.lock().unwrap();
-
-    // Calculate total URLs and total clicks
-    let total_urls = urls.len() as i64;
-    let total_clicks = urls.values().map(|u| u.access_count).sum();
-
+    // Calculate totals and get URLs in one pass without locking everything
+    let total_urls = state.urls.len() as i64;
+    let mut total_clicks: i64 = 0;
+    
     // Get base URL from environment or use default
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     // Transform to response DTOs
-    let mut url_responses: Vec<_> = urls
-        .values()
-        .cloned()
-        .map(|url| UrlResponse {
-            original_url: url.original_url,
-            short_code: url.short_code.clone(),
-            short_url: format!("{}/{}", base_url, url.short_code),
-            created_at: url.created_at,
-            access_count: url.access_count,
+    let mut url_responses: Vec<_> = state.urls
+        .iter()
+        .map(|entry| {
+            let url = entry.value();
+            total_clicks += url.access_count;
+            UrlResponse {
+                original_url: url.original_url.clone(),
+                short_code: url.short_code.clone(),
+                short_url: format!("{}/{}", base_url, url.short_code),
+                created_at: url.created_at,
+                access_count: url.access_count,
+            }
         })
         .collect();
 
