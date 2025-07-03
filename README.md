@@ -173,6 +173,14 @@ docker buildx build --no-cache --platform=linux/amd64 -t url-short-rust-alpine .
 docker run --rm -it -p 3000:3000 url-short-rust-alpine 
 ```
 
+```bash
+locust -f locustfile.py --host http://localhost:3000
+```
+
+```bash
+K6_WEB_DASHBOARD=true k6 run loadtest.js
+```
+
 ## Future Improvements
 
 - User authentication for personal URL management

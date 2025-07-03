@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.4"
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.46.0", features = ["full"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
@@ -18,4 +18,4 @@ thiserror = "2.0.12"
 dashmap = "6.1.0"
 
 [dev-dependencies]
-reqwest = { version = "0.12.20", features = ["json"] }
+reqwest = { version = "0.12.22", features = ["json"] }
