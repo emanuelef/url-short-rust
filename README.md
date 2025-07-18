@@ -31,6 +31,11 @@ cd url-short-rust
 cargo build --release
 ```
 
+3. Upgrade deps
+```bash
+cargo upgrade
+```
+
 ### Configuration
 
 Optionally, set the following environment variable:
