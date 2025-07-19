@@ -6,6 +6,7 @@
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RUST_RESULTS="${PROJECT_DIR}/rust_results.json"
 GO_RESULTS="${PROJECT_DIR}/go_results.json"
+PYTHON_RESULTS="${PROJECT_DIR}/python_results.json"
 
 echo "===== URL Shortener Performance Comparison ====="
 echo "Project directory: ${PROJECT_DIR}"
@@ -110,9 +111,66 @@ run_go_version() {
     echo ""
 }
 
-# Run both versions
+# Function to build and run the Python version
+run_python_version() {
+    echo "Building Python version..."
+    cd "${PROJECT_DIR}/python-version"
+    
+    # Create a virtual environment if it doesn't exist
+    if [ ! -d "venv" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv venv
+        
+        # Install uv package manager
+        source venv/bin/activate
+        pip install uv
+        deactivate
+    fi
+    
+    # Activate the virtual environment and install dependencies
+    echo "Installing dependencies with uv (faster than pip)..."
+    source venv/bin/activate
+    
+    # Check if uv is installed, otherwise fall back to pip
+    if command -v uv &> /dev/null; then
+        uv pip install -r requirements.txt
+    else
+        pip install -r requirements.txt
+    fi
+    
+    echo "Starting Python server..."
+    python main.py &
+    PYTHON_PID=$!
+    
+    if ! check_server "http://localhost:3000"; then
+        echo "Error: Python server failed to start. Skipping tests."
+        kill $PYTHON_PID 2>/dev/null
+        wait $PYTHON_PID 2>/dev/null
+        deactivate
+        return 1
+    fi
+    
+    echo "Running load test for Python version..."
+    cd "${PROJECT_DIR}"
+    k6 run --summary-export="${PYTHON_RESULTS}" "${PROJECT_DIR}/python-version/loadtest.js"
+    K6_STATUS_PYTHON=$?
+    
+    echo "Stopping Python server..."
+    kill $PYTHON_PID
+    wait $PYTHON_PID 2>/dev/null
+    deactivate
+    
+    if [ $K6_STATUS_PYTHON -ne 0 ]; then
+        echo "Warning: k6 load test for Python version exited with non-zero status"
+    fi
+    
+    echo ""
+}
+
+# Run all versions
 run_rust_version
 run_go_version
+run_python_version
 
 # Compare results
 echo "===== Performance Comparison Results ====="
@@ -131,6 +189,14 @@ if [ -f "$GO_RESULTS" ]; then
     jq '.metrics.http_req_duration.avg, .metrics.http_req_duration.p95' "$GO_RESULTS" 2>/dev/null || echo "Error parsing Go results file"
 else
     echo "No results file found for Go implementation at $GO_RESULTS"
+fi
+echo ""
+
+echo "Python performance summary:"
+if [ -f "$PYTHON_RESULTS" ]; then
+    jq '.metrics.http_req_duration.avg, .metrics.http_req_duration.p95' "$PYTHON_RESULTS" 2>/dev/null || echo "Error parsing Python results file"
+else
+    echo "No results file found for Python implementation at $PYTHON_RESULTS"
 fi
 echo ""
 echo "=========================================="

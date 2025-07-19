@@ -199,15 +199,23 @@ K6_WEB_DASHBOARD=true k6 run loadtest.js
 
 A Go implementation of the URL shortener is available in the `go-version` directory. It's built using the Fiber framework, which is designed to be extremely fast and efficient.
 
-To compare the performance of the Rust and Go implementations, you can use the provided script:
+For more details on the Go implementation, see the [Go README](go-version/README.md).
+
+## Python Implementation
+
+A Python implementation of the URL shortener is available in the `python-version` directory. It's built using FastAPI and uvloop for high performance.
+
+For more details on the Python implementation, see the [Python README](python-version/README.md).
+
+## Performance Comparison
+
+To compare the performance of the Rust, Go, and Python implementations, you can use the provided script:
 
 ```bash
 ./compare_performance.sh
 ```
 
-This will build and run both implementations, run load tests on each, and compare the results.
-
-For more details on the Go implementation, see the [Go README](go-version/README.md).
+This will build and run all implementations, run load tests on each, and compare the results.
 
 ## License
 

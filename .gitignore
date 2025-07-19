@@ -3,3 +3,9 @@
 pycache
 *.pyc
 go-version/url-shortener
+python-version/venv
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*_results.json
