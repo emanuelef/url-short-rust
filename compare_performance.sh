@@ -116,25 +116,15 @@ run_python_version() {
     echo "Building Python version..."
     cd "${PROJECT_DIR}/python-version"
     
-    # Create a virtual environment if it doesn't exist
-    if [ ! -d "venv" ]; then
-        echo "Creating virtual environment..."
-        python3 -m venv venv
-        
-        # Install uv package manager
-        source venv/bin/activate
-        pip install uv
-        deactivate
-    fi
-    
-    # Activate the virtual environment and install dependencies
-    echo "Installing dependencies with uv (faster than pip)..."
-    source venv/bin/activate
-    
-    # Check if uv is installed, otherwise fall back to pip
+    echo "Installing dependencies with uv..."
+    # In CI environment, uv should already be installed
     if command -v uv &> /dev/null; then
         uv pip install -r requirements.txt
     else
+        # Fallback for local development
+        echo "uv not found, creating virtual environment and installing dependencies..."
+        python3 -m venv venv
+        source venv/bin/activate
         pip install -r requirements.txt
     fi
     
@@ -158,7 +148,10 @@ run_python_version() {
     echo "Stopping Python server..."
     kill $PYTHON_PID
     wait $PYTHON_PID 2>/dev/null
-    deactivate
+    # Only deactivate if we're in a virtual environment
+    if [ -n "$VIRTUAL_ENV" ]; then
+        deactivate
+    fi
     
     if [ $K6_STATUS_PYTHON -ne 0 ]; then
         echo "Warning: k6 load test for Python version exited with non-zero status"

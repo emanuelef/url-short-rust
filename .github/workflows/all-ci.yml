@@ -94,10 +94,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Docker Compose
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y docker-compose
+          sudo apt-get install -y docker-compose jq curl
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          check-latest: true
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.46.0/k6-v0.46.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-v0.46.0-linux-amd64/k6 /usr/local/bin/
+          k6 version # Verify installation
       
       - name: Run performance comparison
         run: |
