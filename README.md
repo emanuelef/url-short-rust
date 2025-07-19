@@ -195,6 +195,20 @@ K6_WEB_DASHBOARD=true k6 run loadtest.js
 - Admin dashboard
 - Optional persistent storage backend
 
+## Go Implementation
+
+A Go implementation of the URL shortener is available in the `go-version` directory. It's built using the Fiber framework, which is designed to be extremely fast and efficient.
+
+To compare the performance of the Rust and Go implementations, you can use the provided script:
+
+```bash
+./compare_performance.sh
+```
+
+This will build and run both implementations, run load tests on each, and compare the results.
+
+For more details on the Go implementation, see the [Go README](go-version/README.md).
+
 ## License
 
 MIT

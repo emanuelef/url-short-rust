@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener - Go</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        form {
+            margin: 20px 0;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 15px;
+            background: #4a69bd;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        button:hover {
+            background: #273c75;
+        }
+        .result {
+            margin-top: 20px;
+            display: none;
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .result.error {
+            background: #ffebee;
+        }
+        .shortened-url {
+            font-weight: bold;
+            color: #2e7d32;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .urls-list {
+            margin-top: 30px;
+        }
+        .url-item {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 5px solid #4a69bd;
+        }
+        .analytics {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f3f4f6;
+            border-radius: 5px;
+        }
+        .stat {
+            display: inline-block;
+            margin-right: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>URL Shortener - Go Implementation</h1>
+    
+    <form id="shorten-form">
+        <input type="text" id="url-input" placeholder="Enter URL to shorten (e.g., https://example.com)" required>
+        <button type="submit">Shorten</button>
+    </form>
+    
+    <div id="result" class="result">
+        <h3>Your shortened URL:</h3>
+        <div id="shortened-url" class="shortened-url"></div>
+        <button id="copy-button">Copy to clipboard</button>
+    </div>
+    
+    <div class="analytics">
+        <h2>Analytics</h2>
+        <div class="stat">Total URLs: <span id="total-urls">0</span></div>
+        <div class="stat">Total Clicks: <span id="total-clicks">0</span></div>
+    </div>
+    
+    <div class="urls-list">
+        <h2>Your URLs</h2>
+        <div id="urls-container"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const shortenForm = document.getElementById('shorten-form');
+            const urlInput = document.getElementById('url-input');
+            const result = document.getElementById('result');
+            const shortenedUrlElement = document.getElementById('shortened-url');
+            const copyButton = document.getElementById('copy-button');
+            const urlsContainer = document.getElementById('urls-container');
+            const totalUrlsElement = document.getElementById('total-urls');
+            const totalClicksElement = document.getElementById('total-clicks');
+            
+            // Function to get all URLs
+            function getUrls() {
+                fetch('/api/urls')
+                    .then(response => response.json())
+                    .then(data => {
+                        urlsContainer.innerHTML = '';
+                        if (data.length === 0) {
+                            urlsContainer.innerHTML = '<p>No URLs yet. Create your first shortened URL above!</p>';
+                            return;
+                        }
+                        
+                        data.forEach(url => {
+                            const urlItem = document.createElement('div');
+                            urlItem.className = 'url-item';
+                            urlItem.innerHTML = `
+                                <div><strong>Original:</strong> ${url.original_url}</div>
+                                <div><strong>Short URL:</strong> <a href="${url.short_url}" target="_blank">${url.short_url}</a></div>
+                                <div><strong>Created:</strong> ${new Date(url.created_at).toLocaleString()}</div>
+                                <div><strong>Clicks:</strong> ${url.access_count}</div>
+                            `;
+                            urlsContainer.appendChild(urlItem);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching URLs:', error);
+                    });
+            }
+            
+            // Function to get analytics
+            function getAnalytics() {
+                fetch('/api/analytics')
+                    .then(response => response.json())
+                    .then(data => {
+                        totalUrlsElement.textContent = data.total_urls;
+                        totalClicksElement.textContent = data.total_clicks;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching analytics:', error);
+                    });
+            }
+            
+            // Load initial data
+            getUrls();
+            getAnalytics();
+            
+            // Form submission
+            shortenForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const url = urlInput.value.trim();
+                
+                // Basic validation
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    result.style.display = 'block';
+                    result.className = 'result error';
+                    shortenedUrlElement.innerHTML = 'Please enter a valid URL starting with http:// or https://';
+                    return;
+                }
+                
+                // Send API request
+                fetch('/api/shorten', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    result.style.display = 'block';
+                    result.className = 'result';
+                    shortenedUrlElement.innerHTML = `<a href="${data.short_url}" target="_blank">${data.short_url}</a>`;
+                    
+                    // Refresh URLs and analytics
+                    getUrls();
+                    getAnalytics();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    result.style.display = 'block';
+                    result.className = 'result error';
+                    shortenedUrlElement.innerHTML = 'An error occurred. Please try again.';
+                });
+                
+                // Clear input
+                urlInput.value = '';
+            });
+            
+            // Copy to clipboard functionality
+            copyButton.addEventListener('click', function() {
+                const url = shortenedUrlElement.textContent;
+                navigator.clipboard.writeText(url).then(function() {
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy to clipboard';
+                    }, 2000);
+                }).catch(function(err) {
+                    console.error('Could not copy text: ', err);
+                });
+            });
+            
+            // Refresh data every 30 seconds
+            setInterval(() => {
+                getUrls();
+                getAnalytics();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
