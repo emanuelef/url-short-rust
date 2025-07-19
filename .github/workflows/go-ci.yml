@@ -58,7 +58,7 @@ jobs:
         run: go build -v -o url-shortener-go
 
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: url-shortener-go
           path: go-version/url-shortener-go
@@ -82,7 +82,7 @@ jobs:
           cache: true
 
       - name: Download binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: url-shortener-go
           path: ./go-version
