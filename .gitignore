@@ -2,3 +2,4 @@
 .env
 pycache
 *.pyc
+go-version/url-shortener
