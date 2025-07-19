@@ -1,0 +1,146 @@
+name: All Implementations CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  schedule:
+    # Run weekly to ensure continued compatibility
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-matrix:
+    name: Determine affected implementations
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.check-changes.outputs.rust }}
+      go: ${{ steps.check-changes.outputs.go }}
+      python: ${{ steps.check-changes.outputs.python }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "rust=true" >> $GITHUB_OUTPUT
+            echo "go=true" >> $GITHUB_OUTPUT
+            echo "python=true" >> $GITHUB_OUTPUT
+          else
+            git fetch origin ${{ github.base_ref || 'main' }}
+            
+            if git diff --name-only ${{ github.event.before || 'HEAD^' }} ${{ github.sha }} | grep -q -E '^(src/|Cargo.toml|Cargo.lock)'; then
+              echo "rust=true" >> $GITHUB_OUTPUT
+            else
+              echo "rust=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only ${{ github.event.before || 'HEAD^' }} ${{ github.sha }} | grep -q -E '^go-version/'; then
+              echo "go=true" >> $GITHUB_OUTPUT
+            else
+              echo "go=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only ${{ github.event.before || 'HEAD^' }} ${{ github.sha }} | grep -q -E '^python-version/'; then
+              echo "python=true" >> $GITHUB_OUTPUT
+            else
+              echo "python=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  rust:
+    name: Rust CI
+    needs: build-matrix
+    if: needs.build-matrix.outputs.rust == 'true'
+    uses: ./.github/workflows/rust-ci.yml
+
+  go:
+    name: Go CI
+    needs: build-matrix
+    if: needs.build-matrix.outputs.go == 'true'
+    uses: ./.github/workflows/go-ci.yml
+
+  python:
+    name: Python CI
+    needs: build-matrix
+    if: needs.build-matrix.outputs.python == 'true'
+    uses: ./.github/workflows/python-ci.yml
+
+  performance-comparison:
+    name: Performance Comparison
+    needs: [build-matrix, rust, go, python]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      (needs.rust.result == 'success' || needs.rust.result == 'skipped') &&
+      (needs.go.result == 'success' || needs.go.result == 'skipped') &&
+      (needs.python.result == 'success' || needs.python.result == 'skipped')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+      
+      - name: Run performance comparison
+        run: |
+          chmod +x ./compare_performance.sh
+          ./compare_performance.sh
+      
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-comparison-results
+          path: |
+            ./rust_results.json
+            ./go_results.json
+            ./python_results.json
+          if-no-files-found: ignore
+      
+      - name: Generate performance summary
+        run: |
+          echo "## Performance Comparison Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Implementation | Requests/sec | 95th Percentile | Median | Error Rate |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------------|-----------------|--------|------------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "./rust_results.json" ]; then
+            RUST_RPS=$(jq '.metrics.http_reqs.rate' rust_results.json)
+            RUST_P95=$(jq '.metrics.http_req_duration.p95' rust_results.json)
+            RUST_MED=$(jq '.metrics.http_req_duration.med' rust_results.json)
+            RUST_ERR=$(jq '.metrics.http_req_failed.rate' rust_results.json)
+            echo "| Rust | $RUST_RPS | ${RUST_P95}ms | ${RUST_MED}ms | $RUST_ERR% |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "./go_results.json" ]; then
+            GO_RPS=$(jq '.metrics.http_reqs.rate' go_results.json)
+            GO_P95=$(jq '.metrics.http_req_duration.p95' go_results.json)
+            GO_MED=$(jq '.metrics.http_req_duration.med' go_results.json)
+            GO_ERR=$(jq '.metrics.http_req_failed.rate' go_results.json)
+            echo "| Go | $GO_RPS | ${GO_P95}ms | ${GO_MED}ms | $GO_ERR% |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "./python_results.json" ]; then
+            PY_RPS=$(jq '.metrics.http_reqs.rate' python_results.json)
+            PY_P95=$(jq '.metrics.http_req_duration.p95' python_results.json)
+            PY_MED=$(jq '.metrics.http_req_duration.med' python_results.json)
+            PY_ERR=$(jq '.metrics.http_req_failed.rate' python_results.json)
+            echo "| Python | $PY_RPS | ${PY_P95}ms | ${PY_MED}ms | $PY_ERR% |" >> $GITHUB_STEP_SUMMARY
+          fi
