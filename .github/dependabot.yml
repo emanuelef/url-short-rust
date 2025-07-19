@@ -12,3 +12,10 @@ updates:
     directory: "/go-version"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/python-version"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "python"
