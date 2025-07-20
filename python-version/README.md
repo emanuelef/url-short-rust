@@ -42,7 +42,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install uv
 
 # Install dependencies with uv
-uv pip install -r requirements.txt
+uv pip install -e .
 
 # Run the application
 python main.py
@@ -67,7 +67,7 @@ This project uses uv for fast dependency management:
 ./update_deps.sh
 
 # Install dependencies
-uv pip install -r requirements.txt
+uv pip install -e .
 ```
 
 The Dockerfile uses the official `ghcr.io/astral-sh/uv:python3.13-bookworm-slim` image which:

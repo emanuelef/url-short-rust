@@ -119,13 +119,14 @@ run_python_version() {
     echo "Installing dependencies with uv..."
     # In CI environment, uv should already be installed
     if command -v uv &> /dev/null; then
-        uv pip install -r requirements.txt
+        # Install directly from pyproject.toml using uv
+        uv pip install -e .
     else
         # Fallback for local development
-        echo "uv not found, creating virtual environment and installing dependencies..."
+        echo "uv not found, installing via pip..."
         python3 -m venv venv
         source venv/bin/activate
-        pip install -r requirements.txt
+        pip install -e .
     fi
     
     echo "Starting Python server..."
@@ -136,7 +137,10 @@ run_python_version() {
         echo "Error: Python server failed to start. Skipping tests."
         kill $PYTHON_PID 2>/dev/null
         wait $PYTHON_PID 2>/dev/null
-        deactivate
+        # Only deactivate if we're in a virtual environment
+        if [ -n "$VIRTUAL_ENV" ]; then
+            deactivate
+        fi
         return 1
     fi
     
