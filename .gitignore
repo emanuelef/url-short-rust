@@ -10,3 +10,4 @@ __pycache__/
 *$py.class
 .pytest_cache/
 *_results.json
+locust/HOST.md

@@ -62,6 +62,7 @@ COPY --from=builder /usr/src/app/static /app/static
 # Performance tuning
 ENV RUST_LOG=info
 ENV RUST_BACKTRACE=0
+# 0 means use all available cores
 ENV NUM_THREADS=0
 
 EXPOSE 3000

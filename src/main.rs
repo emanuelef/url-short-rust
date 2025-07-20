@@ -82,8 +82,25 @@ impl IntoResponse for AppError {
 
 type Result<T> = std::result::Result<T, AppError>;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+// Use a custom tokio runtime to utilize all cores
+fn main() -> anyhow::Result<()> {
+    // Configure Tokio runtime based on environment or available cores
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(
+            std::env::var("NUM_THREADS")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+                .filter(|&threads| threads > 0)
+                .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, |p| p.get()))
+        )
+        .enable_all()
+        .build()?;
+        
+    // Run the async main function with our custom runtime
+    runtime.block_on(async_main())
+}
+
+async fn async_main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
@@ -116,7 +133,9 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("Listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    
+    // Use standard TcpListener binding instead of the unavailable bind_with_options
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
     // Graceful shutdown: listen for SIGINT or SIGTERM
     let shutdown_signal = async {
