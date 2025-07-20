@@ -82,6 +82,25 @@ Response:
 }
 ```
 
+#### Using curl
+
+You can use curl to shorten a URL from the command line:
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"url": "https://example.com/very/long/url/that/needs/shortening"}' \
+     http://localhost:3000/api/shorten
+```
+
+To access the shortened URL:
+
+```bash
+# Get the short_code from the previous response
+curl -L http://localhost:3000/a1b2c3
+```
+
+The `-L` flag tells curl to follow redirects, so you'll be redirected to the original URL.
+
 ### Get All URLs
 
 ```
