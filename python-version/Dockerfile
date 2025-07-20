@@ -46,9 +46,9 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Create a debug script for better error handling
-RUN echo '#!/bin/bash\nset -e\n\necho "=== Python Environment Info ==="\npython --version\nwhich python\necho "\\nPATH=$PATH"\n\necho "\\n=== Installed Packages ==="\npip list\n\necho "\\n=== Python Import Path ==="\npython -c "import sys; print(sys.path)"\n\necho "\\n=== Testing uvicorn import ==="\npython -c "import uvicorn; print(f\\"uvicorn version: {uvicorn.__version__}\\")"\n\necho "\\n=== Starting Application ==="\nexec python -m uvicorn main:app --host 0.0.0.0 --port 3000 --workers 1\n' > /app/entrypoint.sh && \
-    chmod +x /app/entrypoint.sh
+# Make entrypoint script executable
+COPY docker-entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Command to run the application with debug info
+# Command to run the application
 ENTRYPOINT ["/app/entrypoint.sh"]
