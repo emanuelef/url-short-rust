@@ -41,9 +41,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup virtual environment
-        run: |
-          uv venv
-          echo "source .venv/bin/activate" >> $GITHUB_ENV
+        run: uv venv
 
       - name: Install linting dependencies
         run: |
@@ -87,9 +85,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup virtual environment
-        run: |
-          uv venv
-          echo "source .venv/bin/activate" >> $GITHUB_ENV
+        run: uv venv
 
       - name: Install dependencies
         run: |
@@ -125,9 +121,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup virtual environment
-        run: |
-          uv venv
-          echo "source .venv/bin/activate" >> $GITHUB_ENV
+        run: uv venv
 
       - name: Install dependencies
         run: |
