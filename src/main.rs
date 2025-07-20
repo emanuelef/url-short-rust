@@ -10,11 +10,7 @@ use dashmap::DashMap;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
-use std::{
-    env,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{env, net::SocketAddr, sync::Arc};
 use thiserror::Error;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -91,11 +87,11 @@ fn main() -> anyhow::Result<()> {
                 .ok()
                 .and_then(|s| s.parse::<usize>().ok())
                 .filter(|&threads| threads > 0)
-                .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, |p| p.get()))
+                .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, |p| p.get())),
         )
         .enable_all()
         .build()?;
-        
+
     // Run the async main function with our custom runtime
     runtime.block_on(async_main())
 }
@@ -133,17 +129,19 @@ async fn async_main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("Listening on {}", addr);
-    
+
     // Use standard TcpListener binding instead of the unavailable bind_with_options
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     // Graceful shutdown: listen for SIGINT or SIGTERM
     let shutdown_signal = async {
         use tokio::signal;
-        
+
         // SIGINT handler (Ctrl+C)
         let ctrl_c = async {
-            signal::ctrl_c().await.expect("Failed to install CTRL+C handler");
+            signal::ctrl_c()
+                .await
+                .expect("Failed to install CTRL+C handler");
             tracing::info!("Received SIGINT (Ctrl+C), shutting down");
         };
 
@@ -186,21 +184,21 @@ async fn create_short_url(
     Json(payload): Json<CreateUrlRequest>,
 ) -> Result<Json<UrlResponse>> {
     let start = Instant::now();
-    
-    // Basic URL validation 
+
+    // Basic URL validation
     if !payload.url.starts_with("http://") && !payload.url.starts_with("https://") {
         return Err(AppError::InvalidUrl);
     }
-    
+
     // Generate a short code (only clone once for the URL struct)
     let short_code = nanoid!(6);
-    
+
     // Get current time
     let now = Utc::now();
-    
+
     // Get base URL from environment or use default
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-    
+
     // Create URL object (avoid cloning where possible)
     let url = Url {
         id: nanoid!(10),
@@ -209,17 +207,17 @@ async fn create_short_url(
         created_at: now,
         access_count: 0,
     };
-    
+
     // Save to in-memory store
     state.urls.insert(short_code.clone(), url.clone());
-    
+
     // Log the time taken
     let elapsed = start.elapsed();
     tracing::debug!("[create_short_url] Time taken: {:?}", elapsed);
-    
+
     // Return the shortened URL (avoid unnecessary clones)
     let short_url = format!("{}/{}", base_url, short_code);
-    
+
     Ok(Json(UrlResponse {
         original_url: url.original_url,
         short_code: url.short_code,
@@ -250,7 +248,8 @@ async fn get_all_urls(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Url
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     // Transform to response DTOs without locking the entire map
-    let mut url_responses: Vec<_> = state.urls
+    let mut url_responses: Vec<_> = state
+        .urls
         .iter()
         .map(|entry| {
             let url = entry.value();
@@ -275,12 +274,13 @@ async fn get_analytics(State(state): State<Arc<AppState>>) -> Result<Json<Analyt
     // Calculate totals and get URLs in one pass without locking everything
     let total_urls = state.urls.len() as i64;
     let mut total_clicks: i64 = 0;
-    
+
     // Get base URL from environment or use default
     let base_url = env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
     // Transform to response DTOs
-    let mut url_responses: Vec<_> = state.urls
+    let mut url_responses: Vec<_> = state
+        .urls
         .iter()
         .map(|entry| {
             let url = entry.value();
