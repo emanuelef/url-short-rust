@@ -1,0 +1,188 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "python-version/**"
+      - ".github/workflows/python-ci.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "python-version/**"
+      - ".github/workflows/python-ci.yml"
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./python-version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-lint-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-lint-
+
+      - name: Setup virtual environment
+        run: uv venv
+
+      - name: Install linting dependencies
+        run: |
+          source .venv/bin/activate
+          uv pip install ruff black mypy
+          # Install type stubs for dependencies
+          uv pip install types-nanoid types-requests
+          # Install packages needed for type checking
+          uv pip install fastapi uvicorn uvloop nanoid pydantic
+
+      - name: Lint with ruff
+        run: |
+          source .venv/bin/activate
+          ruff check .
+
+      - name: Format check with black
+        run: |
+          source .venv/bin/activate
+          black --check .
+
+      - name: Type check with mypy
+        run: |
+          source .venv/bin/activate
+          cd "$(pwd)" && mypy --config-file mypy.ini .
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./python-version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-test-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-test-
+
+      - name: Setup virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: |
+          source .venv/bin/activate
+          uv pip install -e .
+          uv pip install pytest pytest-asyncio httpx fastapi
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          pytest
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: ./python-version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-integration-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-integration-
+
+      - name: Setup virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: |
+          source .venv/bin/activate
+          uv pip install -e .
+
+      - name: Start server
+        run: |
+          source .venv/bin/activate
+          python -m uvicorn main:app --host 0.0.0.0 --port 3000 --workers 1 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          # Give the server time to start
+          sleep 3
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.46.0/k6-v0.46.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-v0.46.0-linux-amd64/k6 /usr/local/bin/
+
+      - name: Run basic load test
+        run: |
+          source .venv/bin/activate
+          k6 run --vus 1 --duration 3s loadtest.js
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill $SERVER_PID || true
+          fi
