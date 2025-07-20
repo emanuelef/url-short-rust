@@ -31,7 +31,7 @@ def test_redirect():
     short_code = create_response.json()["short_code"]
     
     # Then test the redirect
-    response = client.get(f"/{short_code}", allow_redirects=False)
+    response = client.get(f"/{short_code}", follow_redirects=False)
     assert response.status_code == 301
     assert response.headers["location"] == "https://example.com/redirect-test"
 

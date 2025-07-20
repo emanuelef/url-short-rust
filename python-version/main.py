@@ -119,7 +119,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Load the HTML template only once during startup
 @app.on_event("startup")
 async def startup_event():
-    global index_html
     try:
         with open("static/index.html", "r") as f:
             app.state.index_html = f.read()
