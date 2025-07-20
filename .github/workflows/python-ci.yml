@@ -33,12 +33,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          cache: 'pip'
 
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-lint-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-lint-
 
       - name: Setup virtual environment
         run: uv venv
@@ -47,6 +57,10 @@ jobs:
         run: |
           source .venv/bin/activate
           uv pip install ruff black mypy
+          # Install type stubs for dependencies
+          uv pip install types-nanoid types-requests
+          # Install packages needed for type checking
+          uv pip install fastapi uvicorn uvloop nanoid pydantic
 
       - name: Lint with ruff
         run: |
@@ -77,12 +91,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          cache: 'pip'
 
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-test-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-test-
 
       - name: Setup virtual environment
         run: uv venv
@@ -113,12 +137,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          cache: 'pip'
 
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      # Setup UV cache to speed up builds
+      - name: Setup UV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.uv
+          key: ${{ runner.os }}-uv-integration-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-integration-
 
       - name: Setup virtual environment
         run: uv venv
