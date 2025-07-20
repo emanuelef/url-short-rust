@@ -4,6 +4,7 @@ pycache
 *.pyc
 go-version/url-shortener
 python-version/venv
+.venv
 __pycache__/
 *.py[cod]
 *$py.class
