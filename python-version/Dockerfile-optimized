@@ -1,0 +1,60 @@
+# --- Stage 1: Builder ---
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements for dependency installation
+COPY requirements.txt ./
+
+# Create virtual environment and install dependencies with uv
+RUN python -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    uv pip install -r requirements.txt && \
+    python -m compileall /opt/venv
+
+# --- Stage 2: Final Image ---
+FROM ghcr.io/astral-sh/uv:python3.13-slim
+
+WORKDIR /app
+
+# Copy the virtual environment from the builder stage
+COPY --from=builder /opt/venv /opt/venv
+
+# Set environment variables for Python
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=random \
+    UV_TOOL_BIN_DIR="/usr/local/bin"
+
+# Set production environment variables
+ENV PORT=3000 \
+    ENV=production \
+    LOG_LEVEL=warning \
+    WORKERS=0 \
+    UVICORN_TIMEOUT=300
+
+# Copy application code
+COPY main.py ./
+COPY static ./static
+
+# Expose port
+EXPOSE 3000
+
+# Command to run the application with optimized settings
+CMD ["python", "-m", "uvicorn", "main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "3000", \
+     "--workers", "${WORKERS:-4}", \
+     "--loop", "uvloop", \
+     "--http", "httptools", \
+     "--proxy-headers", \
+     "--no-access-log", \
+     "--timeout-keep-alive", "75", \
+     "--limit-concurrency", "1000"]

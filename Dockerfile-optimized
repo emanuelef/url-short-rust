@@ -1,0 +1,48 @@
+# --- Stage 1: Builder ---
+FROM --platform=$BUILDPLATFORM rust:1.88-slim AS builder
+WORKDIR /usr/src/app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev musl-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setup for static linking and optimization
+RUN rustup target add x86_64-unknown-linux-musl
+ENV RUSTFLAGS="-C target-feature=+crt-static -C opt-level=3 -C codegen-units=1 -C lto=fat"
+ENV CC=musl-gcc
+
+# --- Dependency Caching ---
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && \
+    echo "fn main() {println!(\"Building dependencies...\");}" > src/main.rs && \
+    cargo build --release --target x86_64-unknown-linux-musl && \
+    rm -f target/x86_64-unknown-linux-musl/release/deps/url_short_rust*
+
+# --- Build Application ---
+COPY src ./src
+COPY static ./static
+RUN touch src/main.rs && \
+    cargo build --release --target x86_64-unknown-linux-musl && \
+    strip target/x86_64-unknown-linux-musl/release/url-short-rust
+
+# --- Stage 2: Final Image ---
+FROM scratch
+WORKDIR /app
+
+# Copy the compiled binary and static files
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/url-short-rust /app/url-short-rust
+COPY --from=builder /usr/src/app/static /app/static
+
+# Set production environment variables
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=0
+
+# Performance tuning
+ENV TOKIO_WORKER_THREADS=0
+ENV RUST_MIN_STACK=8388608
+
+EXPOSE 3000
+
+# Run with direct executable path
+CMD ["/app/url-short-rust"]

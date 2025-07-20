@@ -191,7 +191,11 @@ func main() {
 
 		// Log the time taken
 		elapsed := time.Since(start)
-		log.Printf("[create_short_url] Time taken: %v", elapsed)
+
+		// Only log if duration exceeds threshold or debug is enabled
+		if elapsed > time.Millisecond*100 || os.Getenv("DEBUG") == "true" {
+			log.Printf("[create_short_url] Time taken: %v", elapsed)
+		}
 
 		// Get base URL from environment or use default
 		baseURL := os.Getenv("BASE_URL")

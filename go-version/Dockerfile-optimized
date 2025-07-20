@@ -1,0 +1,54 @@
+# --- Stage 1: Builder ---
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev
+
+# Copy go.mod and go.sum for dependency caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY *.go ./
+COPY static ./static
+
+# Build with optimizations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" \
+    -gcflags=all="-N -l" \
+    -o url-shortener .
+
+# --- Stage 2: Final Image ---
+FROM gcr.io/distroless/static-debian11
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder /app/url-shortener .
+# Copy static files
+COPY --from=builder /app/static ./static
+
+# Set production environment variables
+ENV ENV=production
+ENV GO_ENV=production 
+ENV DEBUG=false
+ENV GIN_MODE=release
+
+# Configure application behavior
+ENV GOMAXPROCS=0
+# Explicitly set to 0 to use all available CPU cores
+
+# Fiber specific configuration
+ENV FIBER_PREFORK=true
+ENV FIBER_CASE_SENSITIVE=true
+ENV FIBER_STRICT_ROUTING=true
+ENV FIBER_BODY_LIMIT=1048576
+ENV FIBER_READ_TIMEOUT=5
+ENV FIBER_WRITE_TIMEOUT=5
+ENV FIBER_IDLE_TIMEOUT=10
+
+EXPOSE 3000
+
+# Run the binary
+ENTRYPOINT ["./url-shortener"]

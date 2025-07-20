@@ -23,6 +23,12 @@ COPY --from=builder /app/url-shortener .
 # Copy static files
 COPY --from=builder /app/static/ ./static/
 
+# Set production environment variables for optimal performance
+ENV ENV=production
+ENV GO_ENV=production
+ENV DEBUG=false
+ENV GOMAXPROCS=0
+
 # Set non-root user for security
 USER nonroot:nonroot
 
