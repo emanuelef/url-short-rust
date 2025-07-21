@@ -126,9 +126,12 @@ func main() {
 		indexHTML = []byte("<h1>Failed to load index.html</h1>")
 	}
 
+	// Check if running in Docker or container environment
+	inContainer := os.Getenv("IN_CONTAINER") == "true"
+
 	// Create a new Fiber app with optimized settings
 	app := fiber.New(fiber.Config{
-		Prefork:               true, // Enable prefork for multi-core usage
+		Prefork:               !inContainer, // Disable prefork in container to prevent port conflicts
 		ServerHeader:          "Fiber",
 		StrictRouting:         true,
 		CaseSensitive:         true,
@@ -371,7 +374,11 @@ func main() {
 	if isPrefork {
 		log.Printf("Starting in prefork mode with %d CPU cores", cpuCount)
 	} else {
-		log.Printf("Starting in single process mode (prefork disabled)")
+		if inContainer {
+			log.Printf("Starting in single process mode (prefork disabled in container environment)")
+		} else {
+			log.Printf("Starting in single process mode (prefork disabled)")
+		}
 	}
 
 	log.Printf("Listening on 0.0.0.0:%s", port)
