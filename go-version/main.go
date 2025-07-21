@@ -365,6 +365,15 @@ func main() {
 		port = "3000"
 	}
 
+	// Better logging about the server mode
+	isPrefork := app.Config().Prefork
+	cpuCount := runtime.NumCPU()
+	if isPrefork {
+		log.Printf("Starting in prefork mode with %d CPU cores", cpuCount)
+	} else {
+		log.Printf("Starting in single process mode (prefork disabled)")
+	}
+
 	log.Printf("Listening on 0.0.0.0:%s", port)
 	if err := app.Listen(fmt.Sprintf("0.0.0.0:%s", port)); err != nil {
 		log.Fatalf("Error starting server: %v", err)

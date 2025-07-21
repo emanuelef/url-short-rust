@@ -35,6 +35,7 @@ COPY --from=builder /app/static/ ./static/
 ENV GOMAXPROCS=0
 ENV BASE_URL=http://localhost:3000
 ENV GOMEMLIMIT=256MiB
+ENV DISABLE_PREFORK=true
 
 # Set non-root user for security
 USER nonroot:nonroot
