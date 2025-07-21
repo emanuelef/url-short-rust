@@ -2,17 +2,25 @@ FROM golang:1.24.5-alpine AS builder
 
 WORKDIR /app
 
-# Copy go.mod and go.sum
-COPY go.mod ./
+# Install build dependencies
+RUN apk add --no-cache ca-certificates tzdata
 
-# Download dependencies
-RUN go mod download
+# Copy go.mod and go.sum
+COPY go.mod go.sum* ./
+
+# Download dependencies and cache them
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source code
 COPY . .
 
-# Build the application with optimizations
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-s -w" -o url-shortener .
+# Build the application with advanced optimizations
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux \
+    go build -a -installsuffix cgo \
+    -ldflags="-s -w -extldflags '-static' -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -o url-shortener .
 
 # Use distroless as minimal base image
 FROM gcr.io/distroless/static-debian11
@@ -22,6 +30,11 @@ WORKDIR /app
 COPY --from=builder /app/url-shortener .
 # Copy static files
 COPY --from=builder /app/static/ ./static/
+
+# Performance environment variables
+ENV GOMAXPROCS=0
+ENV BASE_URL=http://localhost:3000
+ENV GOMEMLIMIT=256MiB
 
 # Set non-root user for security
 USER nonroot:nonroot
