@@ -30,7 +30,7 @@ jobs:
       python: ${{ steps.check-changes.outputs.python }}
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       
@@ -92,7 +92,7 @@ jobs:
       (needs.python.result == 'success' || needs.python.result == 'skipped')
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Install dependencies
         run: |
