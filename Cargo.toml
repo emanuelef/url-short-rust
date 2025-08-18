@@ -13,7 +13,7 @@ nanoid = "0.4.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 thiserror = "2.0.12"
 dashmap = "6.1.0"
 
