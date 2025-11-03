@@ -130,7 +130,7 @@ jobs:
           ./compare_performance.sh
       
       - name: Upload performance results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: performance-comparison-results
           path: |
